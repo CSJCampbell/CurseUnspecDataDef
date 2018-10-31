@@ -1,0 +1,28 @@
+---
+title: Curse of the Unspecified Data Definition
+---
+
+``` {r}
+library(dplyr)
+library(lubridate)
+library(leaflet)
+```
+
+
+``` {r}
+load("paranormal01/example01.RData")
+example01 %>% 
+    mutate( 
+        Location = gsub(
+            pattern = "<.+>", 
+            replacement = "", 
+            x = iconv(
+                Location, 
+                from = "latin1", 
+                to = "ASCII", 
+                sub = "byte"))) %>% 
+    leaflet %>%
+    addTiles() %>%  
+    # raises informative error message
+    addMarkers(popup = ~Location)
+```
