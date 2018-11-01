@@ -1,28 +1,238 @@
 ---
 title: Curse of the Unspecified Data Definition
+author: Chris Campbell
 ---
 
-``` {r}
+# Introduction
+
+A script or app allows repeated analysis of data.
+This tutorial uses data from https://paranormaldatabase.com/.
+
+``` {r include = FALSE}
 library(dplyr)
 library(lubridate)
 library(leaflet)
+library(stringr)
+```
+
+The following script shows how data from https://paranormaldatabase.com/
+can be displayed in a map. For this demonstration we will just display
+the locations.
+
+``` {r}
+library(dplyr)
+library(leaflet)
+# import a data subset
+load("paranormal01/example01.RData")
+# use leaflet to display the paranormal activity
+# spooky huh?
+example01 %>% 
+    # ignore the older sightings
+    filter(Date > "1800-01-01") %>% 
+    leaflet %>%
+    addTiles() %>%  
+    addMarkers(popup = ~Location)
+```
+
+# Types
+
+Data must be of the correct type to be interpreted correctly.
+
+```{r include = FALSE}
+load("paranormal02/example02.RData")
+```
+
+``` {r eval = FALSE}
+load("paranormal02/example02.RData")
+example02 %>% 
+    filter(Date > "1800-01-01") %>% 
+    leaflet %>%
+    addTiles() %>%  
+    # raises informative error message
+    addMarkers(popup = ~Location)
+```
+
+If data are not in the expected format, handling must be applied
+
+``` {r}
+# summary shows that lat is character
+# comma separator
+head(example02)
+library(stringr)
+example02 %>% 
+    # brute force replace comma for .
+    # stringr has a nice unified signature set 
+    # for character handling
+    mutate(
+        lat = as.numeric(
+            str_replace(
+                pattern = ",", 
+                replacement = ".", 
+                string = lat))) %>% 
+    filter(Date > "1800-01-01") %>% 
+    leaflet %>%
+    addTiles() %>%  
+    # raises informative error message
+    addMarkers(popup = ~Location)
+```
+
+# Missing Values
+
+Often datasets will be incomplete. This can cause issues
+for some machine learning methods. It might also indicate
+that the data extraction or data cleaning process were 
+not successful. 
+
+``` {r}
+load("paranormal03/example03.RData")
+# missing values
+# removed by default
+# or impute from scrape path?
+# or geocode from another source?
+example03 %>% 
+    filter(Date > "1800-01-01") %>% 
+    leaflet %>%
+    addTiles() %>%  
+    addMarkers(popup = ~Location)
+# missing
+NA == NA
+is.na(NA)
+# is.na to remove records
+example03 %>% filter(is.na(lat)) %>% head
+
+```
+
+# Data out of Range
+
+Most datasets have acceptable values for numeric variables. 
+If coordinates are expected to be located in the British Isles, 
+they should not indicate a location in the USA.
+If Latitude is greater than 90, something has gone more seriously wrong!
+Business rules could be used to remove mis-located records,
+or perhaps refine and re-run the geocode query.
+
+``` {r}
+load("paranormal04/example04.RData")
+example04 %>% 
+    filter(Date > "1800-01-01") %>% 
+    leaflet %>%
+    addTiles() %>%  
+    addMarkers(popup = ~Location)
 ```
 
 
 ``` {r}
-load("paranormal01/example01.RData")
-example01 %>% 
-    mutate( 
-        Location = gsub(
-            pattern = "<.+>", 
-            replacement = "", 
-            x = iconv(
-                Location, 
-                from = "latin1", 
-                to = "ASCII", 
-                sub = "byte"))) %>% 
+# completely out of range
+# plotted at top edge, no warning! 
+example04 %>% 
+    mutate(
+        lat = replace(
+            x = lat, 
+            list = c(FALSE, TRUE, rep(FALSE, 98)), 
+            values = 2000)) %>% 
+    filter(Date > "1800-01-01") %>% 
     leaflet %>%
     addTiles() %>%  
-    # raises informative error message
+    addMarkers(popup = ~Location)
+```
+
+# Encoding
+
+Data may include records that are not ASCII-US. 
+Some R functions may handle non-ASCII characters; others may not.
+
+```{r include = FALSE}
+load("paranormal05/example05.RData")
+```
+
+``` {r eval = FALSE}
+load("paranormal05/example05.RData")
+example05 %>% 
+    filter(Date > "1800-01-01") %>% 
+    leaflet %>%
+    addTiles() %>%  
+    addMarkers(popup = ~Location)
+```
+
+If encoding is provided, characters can be converted to ASCII-friendly
+codes. These can then be handled more appropriately.
+
+``` {r}
+example05 %>% 
+    filter(Date > "1800-01-01") %>% 
+    mutate(
+        Location_ = Location,
+        Location = iconv(x = Location, 
+            from = "latin1", to = "ASCII", sub = "byte")) %>% 
+    leaflet %>%
+    addTiles() %>%  
+    addMarkers(popup = ~Location)
+```
+
+# Dates
+
+Dates can be represented in lots of different ways.
+
+```{r include = FALSE}
+load("paranormal06/example06.RData")
+```
+
+``` {r}
+load("paranormal06/example06.RData")
+example06 %>% 
+    filter(Date > "1800-01-01") %>% 
+    leaflet %>%
+    addTiles() %>%  
+    addMarkers(popup = ~Location)
+```
+
+The *lubridate* package takes some of the pain out of handling
+variable date formats. For _ad hoc_ date specifications, 
+some custom handling is going to be necessary.
+
+```{r}
+# Date column ad hoc
+head(example06)
+library(lubridate)
+# add made up first Jan
+head(example06) %>% 
+    mutate(Date = dmy(paste("01 01", Date)))
+```
+
+# Larger data volume
+
+Large data volumes are more likely to include previously unspecified records.
+Higher data volumes can raise issues of performance 
+as transformations which don't take long on small datasets need to 
+be performed many more times.
+Interpretibility of outputs can be reduced, with overplotting becoming 
+an issue that needs to be managed in graphics.
+
+``` {r}
+load("paranormal07/example07.RData")
+example07 %>% 
+    filter(Date > "1800-01-01") %>% 
+    mutate(Location = iconv(Location, "latin1", "ASCII", sub = "byte")) %>% 
+    leaflet %>%
+    addTiles() %>%  
+    addMarkers(popup = ~Location)
+```
+
+A framework for managing data based on the business rules can reduce the
+occurrence of issues being raised in the script or app
+with business decisions being communicated as code.
+For example an R6 class could be used to describe and clean 
+the paranormaldatabase.com data.
+
+``` {r}
+source("misc/Spooky.R")
+# create a new Spooky object
+# business rules applied by inialize method
+spooky07 <- Spooky$new(example07)
+# R6 objects use their own methods
+spooky07$data() %>% 
+    filter(Date > "1800-01-01") %>% 
+    leaflet %>%
+    addTiles() %>%  
     addMarkers(popup = ~Location)
 ```
