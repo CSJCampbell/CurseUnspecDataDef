@@ -1,6 +1,9 @@
 ---
-title: Curse of the Unspecified Data Definition
-author: Chris Campbell
+title: "Curse of the Unspecified Data Definition"
+author: "Chris Campbell"
+output:
+  html_document:
+    df_print: paged
 ---
 
 # Introduction
@@ -98,7 +101,7 @@ example03 %>%
 NA == NA
 is.na(NA)
 # is.na to remove records
-example03 %>% filter(is.na(lat)) %>% head
+example03 %>% filter(!is.na(lat)) %>% head
 
 ```
 
@@ -221,6 +224,26 @@ example07 %>%
 A framework for managing data based on the business rules can reduce the
 occurrence of issues being raised in the script or app
 with business decisions being communicated as code.
+
+```{r}
+library(R6)
+Spooky <- R6Class("Spooky", 
+    public = list(
+        lat = NA_real_,
+        lon = NA_real_, 
+        initialize = function(data) {
+            self$lat <- data$lat
+            self$lon <- data$lon
+        },
+        data = function() {
+            data.frame(
+                "lat" = self$lat, 
+                "lon" = self$lon)
+        }))
+boo <- Spooky$new(data.frame(lat = 1:3, lon = 1))
+boo$data()
+```
+
 For example an R6 class could be used to describe and clean 
 the paranormaldatabase.com data.
 
